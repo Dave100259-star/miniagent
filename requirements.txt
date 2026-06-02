@@ -1,0 +1,6 @@
+# 运行真实模型时需要 (跑 pytest 不需要)
+openai>=1.0
+python-dotenv>=1.0
+
+# 开发
+pytest>=7.0

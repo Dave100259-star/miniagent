@@ -1,0 +1,54 @@
+[
+  {
+    "id": "hello",
+    "task": "创建一个 hello.py，运行它会打印一行 Hello, Agent!。写完后用 run_command 运行它确认输出正确。",
+    "checks": [
+      {"type": "file_exists", "path": "hello.py"},
+      {"type": "command_ok", "command": "python hello.py", "stdout_contains": "Hello, Agent!"}
+    ]
+  },
+  {
+    "id": "add_func",
+    "task": "在 mathutil.py 里写一个函数 add(a, b) 返回两数之和。再写一个 check.py，从 mathutil 导入 add，断言 add(2,3)==5，然后打印 OK。运行 check.py 确认通过。",
+    "checks": [
+      {"type": "file_exists", "path": "mathutil.py"},
+      {"type": "command_ok", "command": "python check.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "fix_bug",
+    "task": "buggy.py 里的 factorial(n) 有 bug，运行 test_factorial.py 会失败。请只修改 buggy.py 把 bug 修好，使 test_factorial.py 通过。不要修改测试文件。",
+    "setup_files": {
+      "buggy.py": "def factorial(n):\n    result = 0\n    for i in range(1, n + 1):\n        result *= i\n    return result\n",
+      "test_factorial.py": "from buggy import factorial\n\nassert factorial(5) == 120, f'got {factorial(5)}'\nassert factorial(0) == 1, f'got {factorial(0)}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_factorial.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "wordcount",
+    "task": "创建 data.txt，写入三行，分别是 apple、banana、apple（每行一个单词）。再写 wc.py：读取 data.txt，统计每个单词出现次数，按 '单词: 次数' 每行一个打印出来。运行 wc.py。",
+    "checks": [
+      {"type": "file_exists", "path": "data.txt"},
+      {"type": "command_ok", "command": "python wc.py", "stdout_contains": "apple"}
+    ]
+  },
+  {
+    "id": "calc_module",
+    "task": "创建 calc.py，里面有 add(a,b) 和 mul(a,b) 两个函数。再创建 main.py，从 calc 导入这两个函数，分两行打印 add(2,3) 和 mul(2,3) 的结果。运行 main.py 验证。",
+    "checks": [
+      {"type": "file_exists", "path": "calc.py"},
+      {"type": "command_ok", "command": "python main.py", "stdout_contains": "5"},
+      {"type": "command_ok", "command": "python main.py", "stdout_contains": "6"}
+    ]
+  },
+  {
+    "id": "json_cfg",
+    "task": "创建 config.json，内容是一个 JSON 对象，含字段 name=\"miniagent\" 和 version=1。再写 readcfg.py：读取并解析 config.json，打印 name 字段的值。运行 readcfg.py，输出应包含 miniagent。",
+    "checks": [
+      {"type": "file_exists", "path": "config.json"},
+      {"type": "command_ok", "command": "python readcfg.py", "stdout_contains": "miniagent"}
+    ]
+  }
+]
