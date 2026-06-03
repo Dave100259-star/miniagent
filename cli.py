@@ -37,7 +37,11 @@ def main():
     ap.add_argument("--trace", default=None, help="把完整 trace 存为 JSON 的路径")
     args = ap.parse_args()
 
-    llm = OpenAICompatLLM(model=args.model)
+    try:
+        llm = OpenAICompatLLM(model=args.model)
+    except RuntimeError as e:
+        print(f"⚠️  {e}")
+        sys.exit(1)
     ws = Workspace(args.workspace)
     reg = default_registry()
 
@@ -51,7 +55,7 @@ def main():
     print(f"🎯 任务: {args.task}")
     print(f"📁 工作区: {ws.root}  |  🧠 模型: {llm.model}\n")
 
-    agent = Agent(llm, ws, reg, max_steps=args.max_steps, model=llm.model, on_event=on_event)
+    agent = Agent(llm, ws, reg, max_steps=args.max_steps, on_event=on_event)
     result = agent.run(args.task)
 
     print("\n" + "=" * 56)

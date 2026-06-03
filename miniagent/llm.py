@@ -53,11 +53,15 @@ class OpenAICompatLLM(BaseLLM):
         self.base_url = (base_url or os.getenv("LLM_BASE_URL")
                          or os.getenv("DEEPSEEK_API_URL") or "https://api.deepseek.com")
         self.temperature = temperature
-        if not self.api_key:
+        key = (self.api_key or "").strip()
+        # 必须是真实 key: 非空、纯 ASCII、且不是占位符。
+        # 占位符若漏到 HTTP 层会以一句晦涩的 UnicodeEncodeError 崩掉, 这里提前给人话。
+        if not key or not key.isascii() or "your-key" in key or "在这里" in (self.api_key or ""):
             raise RuntimeError(
-                "未找到 API key。请设置 LLM_API_KEY (或 DEEPSEEK_API_KEY)，"
-                "或在 .env 中配置。无 key 想体验请跑 pytest 或看 README。"
+                "API key 缺失或仍是占位符。请在 .env 把 LLM_API_KEY 换成真实 key "
+                "(形如 sk-xxxx)，保存后重试。无 key 想体验核心逻辑请跑: python -m pytest -q"
             )
+        self.api_key = key
         from openai import OpenAI  # 延迟导入: 不用真实模型时无需安装 openai
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 

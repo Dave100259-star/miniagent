@@ -4,7 +4,7 @@
 全部可单元测试, 不依赖真实模型。
 """
 
-from miniagent.agent import Agent
+from miniagent.agent import Agent, _looks_like_failure
 from miniagent.llm import ScriptedLLM, llm_msg, tool_call
 from miniagent.safety import Workspace
 from miniagent.tools import default_registry
@@ -71,3 +71,48 @@ def test_trace_accumulates_tokens(tmp_path):
     res = _agent(tmp_path, llm=ScriptedLLM(script=script)).run("task")
     assert res.trace.total_tokens == 180
     assert res.trace.total_cost > 0
+
+
+def test_looks_like_failure_classification():
+    # 硬异常 与 命令非零退出 都算失败; 正常输出与 exit=0 不算。
+    assert _looks_like_failure("ERROR: 文件不存在")
+    assert _looks_like_failure("exit=1\nTraceback ...")
+    assert not _looks_like_failure("exit=0\nOK")
+    assert not _looks_like_failure("已写入 12 字符到 a.txt")
+
+
+def test_no_self_correct_aborts_on_failing_command(tmp_path):
+    # 关键: run_command 跑挂 (非零退出) 现在也算失败。
+    # 自我修正关闭时, 第一条失败命令就该终止 —— 第二次 LLM 决策不该发生。
+    fail_cmd = 'python -c "import sys; sys.exit(3)"'
+    script = [
+        llm_msg(tool_calls=[tool_call("run_command", {"command": fail_cmd}, "c1")]),
+        llm_msg(content="不应到达这里"),
+    ]
+    res = _agent(tmp_path, llm=ScriptedLLM(script=script), recover_errors=False).run("task")
+    assert not res.success
+    assert res.trace.llm_calls() == 1
+
+
+def test_self_correct_continues_after_failing_command(tmp_path):
+    # 同样的失败命令, 自我修正开启时应回灌错误并继续到收尾。
+    fail_cmd = 'python -c "import sys; sys.exit(3)"'
+    script = [
+        llm_msg(tool_calls=[tool_call("run_command", {"command": fail_cmd}, "c1")]),
+        llm_msg(content="看到命令失败, 已处理。"),
+    ]
+    res = _agent(tmp_path, llm=ScriptedLLM(script=script), recover_errors=True).run("task")
+    assert res.success
+    assert res.trace.llm_calls() == 2
+
+
+def test_on_event_callback_fires_for_llm_and_tool(tmp_path):
+    # 实时事件回调 (CLI 据此打印进度) 应在 LLM 决策和工具执行两类步骤上都触发。
+    script = [
+        llm_msg(tool_calls=[tool_call("list_dir", {"path": "."}, "c1")]),
+        llm_msg(content="done"),
+    ]
+    events = []
+    _agent(tmp_path, llm=ScriptedLLM(script=script), on_event=events.append).run("task")
+    kinds = [e.kind for e in events]
+    assert "llm" in kinds and "tool" in kinds

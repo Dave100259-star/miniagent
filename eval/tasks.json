@@ -121,5 +121,71 @@
       {"type": "file_contains", "path": "merged.json", "text": "\"z\""},
       {"type": "file_contains", "path": "merged.json", "text": "20"}
     ]
+  },
+  {
+    "id": "fix_offbyone",
+    "task": "运行 test_slice.py 会失败，因为 sliceutil.py 的 first_n(xs, n) 有 off-by-one bug。请先用 run_command 跑一遍确认失败，再只修改 sliceutil.py 修好，使 test_slice.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "sliceutil.py": "def first_n(xs, n):\n    return xs[:n - 1]\n",
+      "test_slice.py": "from sliceutil import first_n\n\nassert first_n([1, 2, 3, 4], 2) == [1, 2], f'got {first_n([1, 2, 3, 4], 2)}'\nassert first_n([5], 1) == [5]\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_slice.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "fix_empty_crash",
+    "task": "运行 test_max.py 会抛异常，因为 maxutil.py 的 maxval(xs) 在空列表上崩溃。请先用 run_command 跑一遍看清报错，再只修改 maxutil.py：空列表返回 None，否则返回最大值。使 test_max.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "maxutil.py": "def maxval(xs):\n    m = xs[0]\n    for x in xs:\n        if x > m:\n            m = x\n    return m\n",
+      "test_max.py": "from maxutil import maxval\n\nassert maxval([3, 1, 2]) == 3\nassert maxval([]) is None, f'got {maxval([])}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_max.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "fix_keyerror",
+    "task": "运行 test_lookup.py 会抛 KeyError，因为 lookup.py 的 get_val(d, key) 在键不存在时直接崩溃。请先跑一遍看清报错，再只修改 lookup.py：键不存在时返回 None。使 test_lookup.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "lookup.py": "def get_val(d, key):\n    return d[key]\n",
+      "test_lookup.py": "from lookup import get_val\n\nassert get_val({'a': 1}, 'a') == 1\nassert get_val({'a': 1}, 'z') is None, f'got {get_val({\"a\": 1}, \"z\")}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_lookup.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "fix_int_div",
+    "task": "运行 test_avg.py 会失败，因为 avgutil.py 的 average(xs) 用了整除导致结果不对。请先跑一遍确认失败，再只修改 avgutil.py 让它返回浮点平均值。使 test_avg.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "avgutil.py": "def average(xs):\n    return sum(xs) // len(xs)\n",
+      "test_avg.py": "from avgutil import average\n\nassert average([1, 2]) == 1.5, f'got {average([1, 2])}'\nassert average([2, 2, 2]) == 2.0\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_avg.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "fix_case_count",
+    "task": "运行 test_vowel.py 会失败，因为 vowel.py 的 count_vowels(s) 没有忽略大小写。请先跑一遍确认失败，再只修改 vowel.py 使其大小写不敏感。使 test_vowel.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "vowel.py": "def count_vowels(s):\n    return sum(1 for c in s if c in 'aeiou')\n",
+      "test_vowel.py": "from vowel import count_vowels\n\nassert count_vowels('AEIOU') == 5, f'got {count_vowels(\"AEIOU\")}'\nassert count_vowels('Hello') == 2\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_vowel.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "fix_paren_match",
+    "task": "运行 test_paren.py 会失败，因为 paren.py 的 is_balanced(s) 只数了括号数量、没校验类型与嵌套顺序。请先跑一遍确认失败，再只修改 paren.py，正确判断 ()[]{} 是否匹配且嵌套合法。使 test_paren.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "paren.py": "def is_balanced(s):\n    n = 0\n    for c in s:\n        if c in '([{':\n            n += 1\n        elif c in ')]}':\n            n -= 1\n        if n < 0:\n            return False\n    return n == 0\n",
+      "test_paren.py": "from paren import is_balanced\n\nassert is_balanced('()[]{}') is True\nassert is_balanced('([{}])') is True\nassert is_balanced('([)]') is False, 'mismatched nesting must fail'\nassert is_balanced('(]') is False\nassert is_balanced('(((') is False\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_paren.py", "stdout_contains": "OK"}
+    ]
   }
 ]

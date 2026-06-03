@@ -20,6 +20,18 @@ from .tools import ToolRegistry
 from .trace import Step, Trace
 
 
+def _looks_like_failure(result: str) -> bool:
+    """工具结果是否表示"失败"。
+    涵盖两类: ① 工具抛出的硬异常/错误 (以 ERROR 开头);
+    ② run_command 的非零退出 (返回形如 'exit=1\\n...', 测试跑挂即属此类)。
+    用于消融实验里判断"是否该触发自我修正"。"""
+    if result.startswith("ERROR"):
+        return True
+    if result.startswith("exit=") and not result.startswith("exit=0"):
+        return True
+    return False
+
+
 @dataclass
 class AgentResult:
     answer: str
@@ -43,7 +55,9 @@ class Agent:
         self.on_event = on_event
         self.compact_after = compact_after          # 消息数超过此值就压缩
         self.compact_keep_recent = compact_keep_recent
-        self.recover_errors = recover_errors         # False=工具一报错就终止 (消融实验用)
+        # recover_errors=True: 观察到失败 (异常/测试跑挂) 后回灌错误、让模型自我修正;
+        # False: 一遇失败就终止 (消融实验用, 量化"自我修正"回路的价值)。
+        self.recover_errors = recover_errors
         self.trace = Trace()
 
     def _emit(self, step: Step) -> None:
@@ -121,10 +135,11 @@ class Agent:
                     detail={"args": tc["arguments"], "result": result[:500]},
                     seconds=round(time.time() - t1, 3),
                 ))
-                # 消融开关: 关闭错误自恢复时, 工具一报错就终止 —— 用来量化"错误回灌"的价值。
-                if not self.recover_errors and result.startswith("ERROR"):
+                # 消融开关: 关闭自我修正时, 一遇到失败 (硬异常 或 命令非零退出/测试跑挂)
+                # 就终止 —— 用来量化"观察失败 → 重试修复"这条自我修正回路的价值。
+                if not self.recover_errors and _looks_like_failure(result):
                     return AgentResult(
-                        f"(错误自恢复已关闭: 工具 {tc['name']} 返回错误, 终止)",
+                        f"(自我修正已关闭: 工具 {tc['name']} 返回失败, 终止)",
                         i + 1, False, self.trace)
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
 

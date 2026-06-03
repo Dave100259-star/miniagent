@@ -2,7 +2,7 @@
 
 亮点不在"能跑", 而在**可测量、可复现、可做消融**:
   --repeat N  : 每题跑 N 次, 报 pass@k 与平均单次通过率 (LLM 非确定, 单次数字不可信)
-  --ablation  : 同一套题在"开/关 错误自恢复"两种配置下各跑一遍, 量化该机制的价值
+  --ablation  : 同一套题在"开/关 自我修正"两种配置下各跑一遍, 量化"观察失败→重试修复"的价值
   --json PATH : 结构化结果落盘, 便于画图 / 跨配置对比
 
 每题在独立的临时工作区里运行, 互不污染。
@@ -140,7 +140,7 @@ def main():
     ap.add_argument("--model", default=None)
     ap.add_argument("--max-steps", type=int, default=15)
     ap.add_argument("--repeat", type=int, default=1, help="每题重复次数 (pass@k / 方差)")
-    ap.add_argument("--ablation", action="store_true", help="对比 开/关 错误自恢复 的通过率")
+    ap.add_argument("--ablation", action="store_true", help="对比 开/关 自我修正 的通过率")
     ap.add_argument("--save-traces", action="store_true", help="每次运行的 trace 存到 eval/traces/")
     ap.add_argument("--json", dest="json_out", default=None, help="结构化结果输出路径")
     args = ap.parse_args()
@@ -162,11 +162,11 @@ def main():
 
     if args.ablation:
         on = run_suite(llm_factory, tasks, args.max_steps, True, args.repeat,
-                       args.save_traces, "[错误自恢复 ON]  ")
+                       args.save_traces, "[自我修正 ON]  ")
         off = run_suite(llm_factory, tasks, args.max_steps, False, args.repeat,
-                        args.save_traces, "[错误自恢复 OFF] ")
+                        args.save_traces, "[自我修正 OFF] ")
         report["runs"] = [on, off]
-        print("\n🔬 消融对比: 错误自恢复 (self-recovery) 的价值")
+        print("\n🔬 消融对比: 自我修正 (观察失败→重试修复) 的价值")
         print("=" * 66)
         print(f"  pass@{args.repeat}:         ON {on['pass_at_k']:>4.0%}   OFF {off['pass_at_k']:>4.0%}"
               f"   Δ {on['pass_at_k'] - off['pass_at_k']:+.0%}")

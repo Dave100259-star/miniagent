@@ -1,0 +1,349 @@
+{
+  "model": "deepseek-chat",
+  "runs": [
+    {
+      "recover_errors": true,
+      "repeat": 3,
+      "pass_at_k": 1.0,
+      "avg_pass1": 1.0,
+      "total_tokens": 308176,
+      "total_cost": 0.100723,
+      "tasks": [
+        {
+          "id": "hello",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 2746,
+          "reason": ""
+        },
+        {
+          "id": "add_func",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 5295.3,
+          "reason": ""
+        },
+        {
+          "id": "fix_bug",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4645.7,
+          "reason": ""
+        },
+        {
+          "id": "wordcount",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4378.7,
+          "reason": ""
+        },
+        {
+          "id": "calc_module",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4305.3,
+          "reason": ""
+        },
+        {
+          "id": "json_cfg",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4285.3,
+          "reason": ""
+        },
+        {
+          "id": "fix_traceback",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7473.3,
+          "reason": ""
+        },
+        {
+          "id": "mutable_default",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4591,
+          "reason": ""
+        },
+        {
+          "id": "safe_div",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 3297,
+          "reason": ""
+        },
+        {
+          "id": "rename_refactor",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7469,
+          "reason": ""
+        },
+        {
+          "id": "wordfreq_sorted",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4275.3,
+          "reason": ""
+        },
+        {
+          "id": "json_merge",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 6211.3,
+          "reason": ""
+        },
+        {
+          "id": "fix_offbyone",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7541.7,
+          "reason": ""
+        },
+        {
+          "id": "fix_empty_crash",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 6588.7,
+          "reason": ""
+        },
+        {
+          "id": "fix_keyerror",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7247,
+          "reason": ""
+        },
+        {
+          "id": "fix_int_div",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7315.7,
+          "reason": ""
+        },
+        {
+          "id": "fix_case_count",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7313,
+          "reason": ""
+        },
+        {
+          "id": "fix_paren_match",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7746,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "recover_errors": false,
+      "repeat": 3,
+      "pass_at_k": 0.6111111111111112,
+      "avg_pass1": 0.6111111111111112,
+      "total_tokens": 207908,
+      "total_cost": 0.068628,
+      "tasks": [
+        {
+          "id": "hello",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 2746,
+          "reason": ""
+        },
+        {
+          "id": "add_func",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 5295,
+          "reason": ""
+        },
+        {
+          "id": "fix_bug",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4640,
+          "reason": ""
+        },
+        {
+          "id": "wordcount",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4398,
+          "reason": ""
+        },
+        {
+          "id": "calc_module",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4300,
+          "reason": ""
+        },
+        {
+          "id": "json_cfg",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4294.7,
+          "reason": ""
+        },
+        {
+          "id": "fix_traceback",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 2980,
+          "reason": "命令失败 (python test_last.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_mcphoorb\\test_last.py\", line 3, in <module>\n    assert last([1, 2, 3]"
+        },
+        {
+          "id": "mutable_default",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4591,
+          "reason": ""
+        },
+        {
+          "id": "safe_div",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 3298.3,
+          "reason": ""
+        },
+        {
+          "id": "rename_refactor",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 7471.7,
+          "reason": ""
+        },
+        {
+          "id": "wordfreq_sorted",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 4275,
+          "reason": ""
+        },
+        {
+          "id": "json_merge",
+          "passes": 3,
+          "repeat": 3,
+          "rate": 1.0,
+          "any": true,
+          "avg_tokens": 6184,
+          "reason": ""
+        },
+        {
+          "id": "fix_offbyone",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 3018,
+          "reason": "命令失败 (python test_slice.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_e11ldlso\\test_slice.py\", line 3, in <module>\n    assert first_n([1, 2"
+        },
+        {
+          "id": "fix_empty_crash",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 919,
+          "reason": "命令失败 (python test_max.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_6tbq59bb\\test_max.py\", line 4, in <module>\n    assert maxval([]) is N"
+        },
+        {
+          "id": "fix_keyerror",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 1843,
+          "reason": "命令失败 (python test_lookup.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_t1fdj81f\\test_lookup.py\", line 4, in <module>\n    assert get_val({'a'"
+        },
+        {
+          "id": "fix_int_div",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 2986,
+          "reason": "命令失败 (python test_avg.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_0fnthuxd\\test_avg.py\", line 3, in <module>\n    assert average([1, 2])"
+        },
+        {
+          "id": "fix_case_count",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 2978,
+          "reason": "命令失败 (python test_vowel.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_2o9bk2x4\\test_vowel.py\", line 3, in <module>\n    assert count_vowels("
+        },
+        {
+          "id": "fix_paren_match",
+          "passes": 0,
+          "repeat": 3,
+          "rate": 0.0,
+          "any": false,
+          "avg_tokens": 3085,
+          "reason": "命令失败 (python test_paren.py): Traceback (most recent call last):\n  File \"C:\\Users\\Dove\\AppData\\Local\\Temp\\eval_p4xiocg3\\test_paren.py\", line 5, in <module>\n    assert is_balanced('"
+        }
+      ]
+    }
+  ]
+}
