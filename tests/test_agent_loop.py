@@ -40,6 +40,19 @@ def test_recovers_from_tool_error(tmp_path):
     assert res.trace.tool_calls() == 2
 
 
+def test_no_recovery_aborts_on_tool_error(tmp_path):
+    # 消融对照: recover_errors=False 时, 第一个工具错误 (读不存在的文件) 就应终止失败,
+    # 第二次 LLM 决策根本不会发生。与上面的 test_recovers_from_tool_error 正好对比。
+    script = [
+        llm_msg(tool_calls=[tool_call("read_file", {"path": "missing.txt"}, "c1")]),
+        llm_msg(content="不应到达这里"),
+    ]
+    res = _agent(tmp_path, llm=ScriptedLLM(script=script), recover_errors=False).run("task")
+    assert not res.success
+    assert res.trace.tool_calls() == 1
+    assert res.trace.llm_calls() == 1   # 第二次 LLM 不会被调用
+
+
 def test_hits_max_steps(tmp_path):
     # 永远只调 list_dir、从不收尾的模型 —— 必须被 max_steps 截断。
     def rule(messages):

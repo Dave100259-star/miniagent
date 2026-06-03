@@ -32,7 +32,8 @@ class Agent:
     def __init__(self, llm: BaseLLM, workspace: Workspace, registry: ToolRegistry,
                  max_steps: int = 12, system: str = SYSTEM_PROMPT,
                  model: str = None, on_event: Optional[Callable[[Step], None]] = None,
-                 compact_after: int = 30, compact_keep_recent: int = 8):
+                 compact_after: int = 30, compact_keep_recent: int = 8,
+                 recover_errors: bool = True):
         self.llm = llm
         self.workspace = workspace
         self.registry = registry
@@ -42,6 +43,7 @@ class Agent:
         self.on_event = on_event
         self.compact_after = compact_after          # 消息数超过此值就压缩
         self.compact_keep_recent = compact_keep_recent
+        self.recover_errors = recover_errors         # False=工具一报错就终止 (消融实验用)
         self.trace = Trace()
 
     def _emit(self, step: Step) -> None:
@@ -119,6 +121,11 @@ class Agent:
                     detail={"args": tc["arguments"], "result": result[:500]},
                     seconds=round(time.time() - t1, 3),
                 ))
+                # 消融开关: 关闭错误自恢复时, 工具一报错就终止 —— 用来量化"错误回灌"的价值。
+                if not self.recover_errors and result.startswith("ERROR"):
+                    return AgentResult(
+                        f"(错误自恢复已关闭: 工具 {tc['name']} 返回错误, 终止)",
+                        i + 1, False, self.trace)
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
 
         return AgentResult("(已达到最大步数, 任务可能未完成)", self.max_steps, False, self.trace)

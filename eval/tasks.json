@@ -50,5 +50,76 @@
       {"type": "file_exists", "path": "config.json"},
       {"type": "command_ok", "command": "python readcfg.py", "stdout_contains": "miniagent"}
     ]
+  },
+  {
+    "id": "fix_traceback",
+    "task": "运行 test_last.py 会因为 lastval.py 里的越界 bug 抛异常。请先用 run_command 跑一遍看清报错，再只修改 lastval.py 把 bug 修好，使 test_last.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "lastval.py": "def last(xs):\n    return xs[len(xs)]\n",
+      "test_last.py": "from lastval import last\n\nassert last([1, 2, 3]) == 3, f'got {last([1, 2, 3])}'\nassert last([42]) == 42\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_last.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "mutable_default",
+    "task": "test_acc.py 失败了，因为 acc.py 的 collect 函数用了可变默认参数，导致状态在多次调用之间被错误地共享。请只修改 acc.py 修好它（每次调用都应返回只含本次元素的新列表），使 test_acc.py 打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "acc.py": "def collect(x, bucket=[]):\n    bucket.append(x)\n    return bucket\n",
+      "test_acc.py": "from acc import collect\n\nassert collect(1) == [1], f'got {collect(1)}'\nassert collect(2) == [2], f'got {collect(2)}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_acc.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "safe_div",
+    "task": "创建 safemath.py，实现 safe_div(a, b)：当 b == 0 时返回 None，否则返回 a / b。再写 verify.py：从 safemath 导入 safe_div，断言 safe_div(6, 3) == 2.0 且 safe_div(1, 0) is None，全部通过后打印 OK。运行 verify.py 验证。",
+    "checks": [
+      {"type": "file_exists", "path": "safemath.py"},
+      {"type": "command_ok", "command": "python verify.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "rename_refactor",
+    "task": "把函数 area_of_circle 改名为 circle_area。geo.py 里的定义、以及 app.py 里的导入与调用都要同步改名，确保运行 python app.py 仍输出 12.57。改完后用 read_file 复查 geo.py 和 app.py，确保两个文件里都不再出现旧名字 area_of_circle。",
+    "setup_files": {
+      "geo.py": "import math\n\n\ndef area_of_circle(r):\n    return math.pi * r * r\n",
+      "app.py": "from geo import area_of_circle\n\nprint(round(area_of_circle(2), 2))\n"
+    },
+    "checks": [
+      {"type": "file_contains", "path": "geo.py", "text": "def circle_area"},
+      {"type": "file_not_contains", "path": "geo.py", "text": "area_of_circle"},
+      {"type": "file_not_contains", "path": "app.py", "text": "area_of_circle"},
+      {"type": "command_ok", "command": "python app.py", "stdout_contains": "12.57"}
+    ]
+  },
+  {
+    "id": "wordfreq_sorted",
+    "task": "读取 words.txt（一行，单词以空格分隔）。写 freq.py：统计每个单词出现次数，按出现次数从高到低输出，格式严格为 “单词 次数”（中间一个空格），每行一个；次数相同时按单词字母升序。运行 freq.py。",
+    "setup_files": {
+      "words.txt": "apple banana apple cherry banana apple\n"
+    },
+    "checks": [
+      {"type": "file_exists", "path": "freq.py"},
+      {"type": "command_ok", "command": "python freq.py", "stdout_contains": "apple 3"},
+      {"type": "command_ok", "command": "python freq.py", "stdout_contains": "banana 2"}
+    ]
+  },
+  {
+    "id": "json_merge",
+    "task": "读取 a.json 和 b.json 两个 JSON 对象，合并成一个：相同键以 b.json 的值为准。写 merge.py 完成该逻辑，把合并结果写入 merged.json，并打印合并后对象的键数量。运行 merge.py。合并后 x 应保留、y 应为 20、且包含键 z。",
+    "setup_files": {
+      "a.json": "{\"x\": 1, \"y\": 2}\n",
+      "b.json": "{\"y\": 20, \"z\": 3}\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python merge.py"},
+      {"type": "file_exists", "path": "merged.json"},
+      {"type": "file_contains", "path": "merged.json", "text": "\"x\""},
+      {"type": "file_contains", "path": "merged.json", "text": "\"z\""},
+      {"type": "file_contains", "path": "merged.json", "text": "20"}
+    ]
   }
 ]
