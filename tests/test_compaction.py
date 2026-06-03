@@ -1,9 +1,9 @@
 """上下文压缩逻辑的单元测试 —— 同样无需 key。"""
 
 from miniagent.agent import Agent
+from miniagent.llm import ScriptedLLM
 from miniagent.safety import Workspace
 from miniagent.tools import default_registry
-from miniagent.llm import ScriptedLLM
 
 
 def _agent(tmp_path, **kw):

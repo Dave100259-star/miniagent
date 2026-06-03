@@ -57,3 +57,17 @@ def test_edit_file_ambiguous(tmp_path):
     ws, reg = Workspace(tmp_path), default_registry()
     reg.call("write_file", {"path": "a.py", "content": "a\na\n"}, ws)
     assert "不唯一" in reg.call("edit_file", {"path": "a.py", "old": "a", "new": "b"}, ws)
+
+
+def test_run_command_blocks_dangerous(tmp_path):
+    # 灾难级命令被安全护栏拦截 (defense-in-depth)。
+    ws, reg = Workspace(tmp_path), default_registry()
+    out = reg.call("run_command", {"command": "rm -rf /"}, ws)
+    assert out.startswith("ERROR") and "护栏" in out
+
+
+def test_run_command_allows_normal(tmp_path):
+    # 护栏不能误伤正常的开发命令。
+    ws, reg = Workspace(tmp_path), default_registry()
+    out = reg.call("run_command", {"command": "python -c \"print('safe')\""}, ws)
+    assert "safe" in out and "exit=0" in out

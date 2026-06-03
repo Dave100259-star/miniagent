@@ -17,7 +17,7 @@ from .llm import BaseLLM, estimate_cost
 from .prompts import SYSTEM_PROMPT
 from .safety import Workspace
 from .tools import ToolRegistry
-from .trace import Trace, Step
+from .trace import Step, Trace
 
 
 @dataclass

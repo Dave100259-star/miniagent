@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miniagent"
+version = "0.1.0"
+description = "一个带评测与可观测性的极简 coding agent (a minimal coding agent with evals & observability)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+# 跑 pytest 不需要任何运行时依赖 (核心逻辑用 ScriptedLLM 测, 见 README)。
+# 只有连真实模型时才需要 [real]。
+[project.optional-dependencies]
+real = ["openai>=1.0", "python-dotenv>=1.0"]
+dev = ["pytest>=7.0", "ruff>=0.4"]
+
+[project.scripts]
+miniagent = "cli:main"
+
+[tool.setuptools]
+packages = ["miniagent"]
+py-modules = ["cli"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = ["E501"]  # 行宽不强制: 含中文注释, 字符计数与英文不同

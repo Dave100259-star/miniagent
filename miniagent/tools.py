@@ -4,6 +4,7 @@
 所有文件/命令操作都经过 Workspace 沙箱。
 """
 
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import Callable
@@ -84,7 +85,33 @@ def _list_dir(ws: Workspace, path: str = ".") -> str:
     return "\n".join(items) if items else "(空目录)"
 
 
+# 默认拦截的"灾难级"命令模式。
+# ⚠️ 诚实声明: 这是 defense-in-depth, **不是真正的沙箱**。黑名单本质可绕过
+# (编码 / 字符串拼接 / 别名 / 写脚本再执行)。run_command 走的是 shell=True,
+# cwd 设在工作区但并不构成隔离 —— 真要约束一个会跑 shell 的 agent, 正确做法是
+# OS 级隔离 (容器 / seccomp / 只读挂载 / 禁网)。详见 README 的"安全边界"一节。
+_DANGEROUS_PATTERNS = [
+    r"\brm\s+-[a-z]*[rf][a-z]*\s+(/|~|\$HOME|\*)",   # rm -rf /  ~  *
+    r":\s*\(\s*\)\s*\{.*\|.*&\s*\}",                  # fork bomb :(){ :|:& };:
+    r"\bmkfs\b", r"\bdd\b\s+if=", r"\b(shutdown|reboot|halt|poweroff)\b",
+    r"\bsudo\b", r">\s*/dev/sd", r"\bchmod\s+-R\s+0?777\s+/",
+]
+_DANGEROUS_RE = [re.compile(p) for p in _DANGEROUS_PATTERNS]
+
+
+def _is_dangerous(command: str) -> str | None:
+    """命中返回触发的模式 (用于提示), 否则 None。"""
+    for rx in _DANGEROUS_RE:
+        if rx.search(command):
+            return rx.pattern
+    return None
+
+
 def _run_command(ws: Workspace, command: str, timeout: int = 20) -> str:
+    bad = _is_dangerous(command)
+    if bad:
+        return (f"ERROR: 命令被安全护栏拦截 (匹配危险模式 {bad!r})。"
+                f"这是 defense-in-depth 而非真沙箱; 真隔离请用容器, 见 README。")
     try:
         r = subprocess.run(
             command, shell=True, cwd=str(ws.root),

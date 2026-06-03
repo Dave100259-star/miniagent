@@ -1,5 +1,10 @@
 # miniagent
 
+<!-- 推到 GitHub 后把 OWNER/REPO 换成你的仓库，badge 会自动变绿 -->
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+![tests](https://img.shields.io/badge/tests-20%20passed-brightgreen)
+![python](https://img.shields.io/badge/python-3.10%2B-blue)
+
 > 一个 ~600 行、带**评测**与**可观测性**的极简 coding agent。
 > 不是又一个 "用 200 行复刻 Claude Code" 的教程仓库 —— 重点不在循环本身，而在**怎么测量和保证它的质量**。
 
@@ -7,7 +12,7 @@
 
 - ✅ **评测套件 (eval)** —— agent 在一组真实任务上的通过率是可量化的，不是"我跑了一下感觉还行"
 - ✅ **可观测性 (trace)** —— 每一步的工具调用、token、成本、耗时都可复盘、可落盘
-- ✅ **沙箱安全** —— 文件读写被约束在工作区内，路径越界直接拦截
+- ✅ **安全边界** —— 文件工具 (读/写/改/列) 经 `Workspace` 做路径约束，越界即拦截；`run_command` 另加危险命令护栏（并诚实说明它不是真隔离，见下文「安全边界」）
 - ✅ **工具报错自恢复** —— 工具失败不会让流程崩溃，错误会回灌给模型让它自我修正
 - ✅ **上下文压缩** —— 历史过长时截断陈旧的工具输出、保留近期轮次，避免顶到 token 上限（且不破坏 tool_call 配对）
 - ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环**无需真实 API key 即可被单元测试覆盖**（18 个测试）
@@ -94,16 +99,17 @@ python eval/run_eval.py
 
 - **工具错误为什么不抛异常而是回灌文本？** 真实 agent 跑起来工具一定会失败（文件不存在、命令报错）。让 agent "看见"错误并自我修正，比直接崩溃更接近生产形态，也是它 agentic 能力的体现。`test_recovers_from_tool_error` 专门覆盖这一点。
 
-- **为什么坚持沙箱？** 一个能 `run_command` 的 agent 不加边界就是安全隐患。`Workspace` 把所有路径约束在工作区内，越界即 `ValueError`。这是"判断力"而非"功能"。
+- **关于安全边界（诚实版）。** 文件工具全部经 `Workspace.resolve()` 约束在工作区内，`../` 或绝对路径越界即 `ValueError`，这部分是真边界。但 `run_command` 走 `shell=True`，`cwd` 设在工作区**并不构成隔离** —— 它仍能 `cat /etc/passwd`、联网、动系统文件。我对它只做了一层 *defense-in-depth* 的危险命令护栏（拦 `rm -rf /`、fork bomb、`sudo` 等），并明确知道黑名单本质可绕过。**真正隔离一个会跑 shell 的 agent，正确答案是 OS 级隔离（容器 / seccomp / 只读挂载 / 禁网），不是黑名单。** 把这个 tradeoff 讲清楚，比假装"已经安全"更重要 —— 这正是工程判断力。
 
 - **为什么 provider 无关？** 把 `LLM_BASE_URL / LLM_MODEL / LLM_API_KEY` 抽出来，换模型零改代码，也方便用便宜模型做 eval、贵模型做对比。
 
 ## 已知限制 / Roadmap
 
-- 上下文压缩目前是基于消息条数的简单策略 → 可升级为基于 token 计数 + 摘要
-- 工具集仍偏小（5 个），可扩展 `grep` / `apply_patch` / 受控网络访问等
-- eval 任务偏小（6 个 Python 任务），可扩成更大基准
-- 暂为单 agent，未来可加 planner/executor 分工对比效果
+- **`run_command` 非真隔离** —— 目前只有黑名单护栏（defense-in-depth）。生产形态应换 OS 级隔离：Docker 容器 + 只读挂载 + 禁网 + 资源/超时限制。
+- **上下文压缩偏简单** —— 现为基于消息条数的截断策略，可升级为基于 token 计数 + 旧轮次摘要（summarization）。
+- **eval 偏小且偏易** —— 6 个 Python 任务，可扩成更难、多文件、需读报错迭代的基准；并对每题跑多次报 pass@k / 方差（LLM 非确定）。
+- **暂为单 agent** —— 可加 planner/executor 分工并做对比实验。
+- **可观测性可视化** —— trace 已落盘 JSON，可再加一个 trace viewer。
 
 ## License
 

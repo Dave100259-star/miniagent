@@ -20,7 +20,7 @@ class Workspace:
         try:
             target.relative_to(self.root)
         except ValueError:
-            raise ValueError(f"路径越界, 被沙箱拦截: {path}")
+            raise ValueError(f"路径越界, 被沙箱拦截: {path}") from None
         return target
 
     def __repr__(self) -> str:

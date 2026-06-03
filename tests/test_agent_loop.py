@@ -5,9 +5,9 @@
 """
 
 from miniagent.agent import Agent
+from miniagent.llm import ScriptedLLM, llm_msg, tool_call
 from miniagent.safety import Workspace
 from miniagent.tools import default_registry
-from miniagent.llm import ScriptedLLM, tool_call, llm_msg
 
 
 def _agent(tmp_path, **kw):

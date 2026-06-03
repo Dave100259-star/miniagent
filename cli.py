@@ -5,8 +5,8 @@
     python cli.py "修复 bug" --workspace ./workspace --max-steps 15 --trace run.json
 """
 
-import sys
 import argparse
+import sys
 
 # Windows 控制台默认 GBK, 含 emoji / 中文会崩 —— 强制 UTF-8 (上个项目踩过的坑)。
 try:
