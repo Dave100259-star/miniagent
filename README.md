@@ -1,7 +1,6 @@
 # miniagent
 
-<!-- 推到 GitHub 后把 OWNER/REPO 换成你的仓库，badge 会自动变绿 -->
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml/badge.svg)](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml)
 ![tests](https://img.shields.io/badge/tests-30%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
