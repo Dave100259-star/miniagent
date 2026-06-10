@@ -22,6 +22,14 @@
 
 ---
 
+## Trace Viewer
+
+每次运行可落盘为 `run.json`，用单文件 [`viewer/index.html`](viewer/index.html) 打开即可复盘每一步的**决策 → 工具调用 → 结果**，以及逐步的 token / 成本 / 耗时与退出码：
+
+![miniagent trace viewer](docs/viewer.png)
+
+---
+
 ## 架构
 
 ```
