@@ -187,5 +187,66 @@
     "checks": [
       {"type": "command_ok", "command": "python test_paren.py", "stdout_contains": "OK"}
     ]
+  },
+  {
+    "id": "two_bugs",
+    "task": "运行 test_statbox.py 会失败，statbox.py 的 describe 里有两个 bug（平均值用了整除、最大值错用了 min）。请先用 run_command 跑一遍看清楚，再只修改 statbox.py 把两个 bug 都修好，使其打印 OK。注意可能需要跑多轮才能两个都修对。不要修改测试文件。",
+    "setup_files": {
+      "statbox.py": "def describe(xs):\n    return {\"sum\": sum(xs), \"avg\": sum(xs) // len(xs), \"biggest\": min(xs)}\n",
+      "test_statbox.py": "from statbox import describe\n\nd = describe([1, 2, 3, 4])\nassert d['sum'] == 10, f'sum {d}'\nassert d['avg'] == 2.5, f'avg {d}'\nassert d['biggest'] == 4, f'biggest {d}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_statbox.py", "stdout_contains": "OK"}
+    ]
+  },
+  {
+    "id": "multifile_refactor3",
+    "task": "把 geo.py 里的函数 area 改名为 disk_size，并同步 shapes.py 中的导入与调用（shapes.py 通过 geo 间接使用它），确保 python app.py 仍输出 15.71。改完用 read_file 复查 geo.py 与 shapes.py 中都不再出现旧名 area。",
+    "setup_files": {
+      "geo.py": "import math\n\n\ndef area(r):\n    return math.pi * r * r\n",
+      "shapes.py": "from geo import area\n\n\ndef combined(rs):\n    return sum(area(r) for r in rs)\n",
+      "app.py": "from shapes import combined\n\nprint(round(combined([1, 2]), 2))\n"
+    },
+    "checks": [
+      {"type": "file_contains", "path": "geo.py", "text": "def disk_size"},
+      {"type": "file_not_contains", "path": "geo.py", "text": "area"},
+      {"type": "file_not_contains", "path": "shapes.py", "text": "area"},
+      {"type": "command_ok", "command": "python app.py", "stdout_contains": "15.71"}
+    ]
+  },
+  {
+    "id": "distractor_fix",
+    "task": "仓库里有 discount.py（在用）和 discount_old.py（废弃备份）。运行 test_discount.py 会失败——discount.py 的 apply 应实现九折（打 9 折），而不是减 5。请只修改 discount.py 修好，使测试打印 OK。务必不要改 discount_old.py，它是备份必须原样保留。",
+    "setup_files": {
+      "discount.py": "def apply(price):\n    return price - 5\n",
+      "discount_old.py": "def apply(price):\n    return price - 5\n",
+      "test_discount.py": "from discount import apply\n\nassert apply(100) == 90, f'got {apply(100)}'\nassert apply(50) == 45, f'got {apply(50)}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_discount.py", "stdout_contains": "OK"},
+      {"type": "file_contains", "path": "discount_old.py", "text": "price - 5"}
+    ]
+  },
+  {
+    "id": "nested_sum",
+    "task": "创建 sumv.py：读取 data.json（一个对象，每个值是一个可能含 v 字段的子对象），把所有存在的 v 字段之和打印出来，缺少 v 字段的要跳过（data.json 里 c 就没有 v）。运行 sumv.py，输出应包含 3。",
+    "setup_files": {
+      "data.json": "{\"a\": {\"v\": 1}, \"b\": {\"v\": 2}, \"c\": {}}\n"
+    },
+    "checks": [
+      {"type": "file_exists", "path": "sumv.py"},
+      {"type": "command_ok", "command": "python sumv.py", "stdout_contains": "3"}
+    ]
+  },
+  {
+    "id": "shared_state",
+    "task": "运行 test_baggy.py 会失败，因为 baggy.py 的 Bag 类用了可变默认参数，导致不同实例错误地共享同一个列表。请先跑一遍确认，再只修改 baggy.py 修好（每个新建的 Bag 都应拥有独立的空列表），使其打印 OK。不要修改测试文件。",
+    "setup_files": {
+      "baggy.py": "class Bag:\n    def __init__(self, items=[]):\n        self.items = items\n\n    def add(self, x):\n        self.items.append(x)\n        return self.items\n",
+      "test_baggy.py": "from baggy import Bag\n\na = Bag()\na.add(1)\nb = Bag()\nassert b.items == [], f'new bag should be empty, got {b.items}'\nb.add(2)\nassert b.items == [2], f'got {b.items}'\nprint('OK')\n"
+    },
+    "checks": [
+      {"type": "command_ok", "command": "python test_baggy.py", "stdout_contains": "OK"}
+    ]
   }
 ]

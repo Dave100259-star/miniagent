@@ -24,9 +24,13 @@ miniagent = "cli:main"
 packages = ["miniagent"]
 py-modules = ["cli"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]   # 只收集本项目测试, 不误入同目录下的其它项目
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+extend-exclude = ["rag"]   # rag 是另一个独立项目, 不参与本仓库 lint
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
