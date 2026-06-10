@@ -1,0 +1,76 @@
+{
+  "summary": {
+    "steps": 5,
+    "llm_calls": 3,
+    "tool_calls": 2,
+    "tokens": 2786,
+    "cost_usd": 0.00083,
+    "seconds": 0.11
+  },
+  "steps": [
+    {
+      "kind": "llm",
+      "name": "deepseek-chat",
+      "detail": {
+        "content": "",
+        "tool_calls": [
+          "write_file"
+        ]
+      },
+      "tokens": 862,
+      "cost": 0.000268,
+      "seconds": 0.0
+    },
+    {
+      "kind": "tool",
+      "name": "write_file",
+      "detail": {
+        "args": {
+          "path": "hello.py",
+          "content": "print(\"Hello, Agent!\")\n"
+        },
+        "result": "已写入 23 字符到 hello.py"
+      },
+      "tokens": 0,
+      "cost": 0.0,
+      "seconds": 0.002
+    },
+    {
+      "kind": "llm",
+      "name": "deepseek-chat",
+      "detail": {
+        "content": "",
+        "tool_calls": [
+          "run_command"
+        ]
+      },
+      "tokens": 923,
+      "cost": 0.000264,
+      "seconds": 0.0
+    },
+    {
+      "kind": "tool",
+      "name": "run_command",
+      "detail": {
+        "args": {
+          "command": "python hello.py"
+        },
+        "result": "exit=0\nHello, Agent!"
+      },
+      "tokens": 0,
+      "cost": 0.0,
+      "seconds": 0.112
+    },
+    {
+      "kind": "llm",
+      "name": "deepseek-chat",
+      "detail": {
+        "content": "已创建 hello.py 并运行，输出 Hello, Agent!，确认正确。",
+        "tool_calls": []
+      },
+      "tokens": 1001,
+      "cost": 0.000298,
+      "seconds": 0.0
+    }
+  ]
+}

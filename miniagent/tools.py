@@ -107,26 +107,29 @@ def _is_dangerous(command: str) -> str | None:
     return None
 
 
-def _run_command(ws: Workspace, command: str, timeout: int = 20) -> str:
-    bad = _is_dangerous(command)
-    if bad:
-        return (f"ERROR: 命令被安全护栏拦截 (匹配危险模式 {bad!r})。"
-                f"这是 defense-in-depth 而非真沙箱; 真隔离请用容器, 见 README。")
-    try:
-        r = subprocess.run(
-            command, shell=True, cwd=str(ws.root),
-            capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return f"ERROR: 命令超时 (>{timeout}s): {command}"
-    out = (r.stdout or "").strip()
-    err = (r.stderr or "").strip()
-    body = out + (f"\n[stderr]\n{err}" if err else "")
-    return f"exit={r.returncode}\n{body[:4000]}"
+def _make_run_command(executor):
+    """返回一个绑定到指定执行后端 (Executor) 的 run_command 工具函数。
+    黑名单护栏在执行前先拦一道 (对 LocalExecutor 尤其重要); 真隔离交给 DockerExecutor。"""
+
+    def _run_command(ws: Workspace, command: str, timeout: int = 20) -> str:
+        bad = _is_dangerous(command)
+        if bad:
+            return (f"ERROR: 命令被安全护栏拦截 (匹配危险模式 {bad!r})。"
+                    f"这是 defense-in-depth 而非真沙箱; 真隔离请用 DockerExecutor, 见 README。")
+        try:
+            res = executor.run(command, cwd=str(ws.root), timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return f"ERROR: 命令超时 (>{timeout}s): {command}"
+        return f"exit={res.exit_code}\n{res.output[:4000]}"
+
+    return _run_command
 
 
-def default_registry() -> ToolRegistry:
+def default_registry(executor=None) -> ToolRegistry:
+    """构建默认工具集。executor 决定 run_command 在哪执行 (默认 LocalExecutor;
+    传 DockerExecutor 即获得 OS 级隔离)。"""
+    from .executor import LocalExecutor
+    executor = executor or LocalExecutor()
     reg = ToolRegistry()
     reg.register(Tool(
         "read_file", "读取工作区内某个文件的全部内容。",
@@ -159,6 +162,6 @@ def default_registry() -> ToolRegistry:
             "command": {"type": "string"},
             "timeout": {"type": "integer", "description": "秒, 默认 20"}},
          "required": ["command"]},
-        _run_command,
+        _make_run_command(executor),
     ))
     return reg

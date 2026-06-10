@@ -1,7 +1,7 @@
 # miniagent
 
 [![CI](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml/badge.svg)](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-36%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-44%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 > 一个 ~600 行、带**评测**与**可观测性**的极简 coding agent。
@@ -11,10 +11,13 @@
 
 - ✅ **评测套件 (eval)** —— 23 个真实任务上的通过率可量化，支持 `--repeat` 重复跑出 **pass@1 均值 + bootstrap 95% 置信区间**（LLM 非确定，单点数字会骗人）、跨配置**消融**与**跨模型矩阵**，还报**单位成功成本**，不是"我跑了一下感觉还行"
 - ✅ **可观测性 (trace)** —— 每一步的工具调用、token、成本、耗时都可复盘、可落盘
-- ✅ **安全边界** —— 文件工具 (读/写/改/列) 经 `Workspace` 做路径约束，越界即拦截；`run_command` 另加危险命令护栏（并诚实说明它不是真隔离，见下文「安全边界」）
-- ✅ **工具报错自恢复** —— 工具失败不会让流程崩溃，错误会回灌给模型让它自我修正
-- ✅ **上下文压缩** —— 历史过长时截断陈旧的工具输出、保留近期轮次，避免顶到 token 上限（且不破坏 tool_call 配对）
-- ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环**无需真实 API key 即可被单元测试覆盖**（36 个测试，含自我修正的开/关对照、bootstrap 统计）
+- ✅ **可插拔执行后端 (Executor)** —— `run_command` 抽象为接口：`LocalExecutor`（宿主机护栏版）/ `DockerExecutor`（`--network none` + 只读根 + 仅挂工作区 + 资源限额），把"我知道正确答案是容器隔离"升级为"我实现了"
+- ✅ **MCP host** —— 通过 stdio 连接任意 [MCP](https://modelcontextprotocol.io) server，自动发现远程工具 → 转 function schema → 命名空间注入主循环（`--mcp "..."`）。从"写了个 agent"升级为"搭了个能接入工具生态的 host"
+- ✅ **可观测性 (trace) + 可视化** —— 每一步的工具调用 / token / 成本 / 耗时可落盘成 JSON，配单文件 `viewer/index.html` 渲染时间线与调用树
+- ✅ **安全边界（诚实版）** —— 文件工具经 `Workspace` 做路径约束，越界即拦截；`run_command` 加危险命令护栏，并诚实说明本地版不是真隔离（真隔离用 `DockerExecutor`，见下文）
+- ✅ **自我修正** —— 工具/命令失败（含测试跑挂）不会让流程崩溃，错误回灌给模型让它观察→重试→修复；该机制的价值由消融实验量化
+- ✅ **上下文压缩** —— 历史过长时截断陈旧的工具输出、保留近期轮次，且不破坏 tool_call 配对
+- ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环**无需真实 API key 即可被单元测试覆盖**（44 个测试，含自我修正开/关对照、bootstrap 统计、MCP 端到端、Executor 注入）
 - ✅ **provider 无关** —— OpenAI 兼容，DeepSeek / 通义千问 / 智谱 GLM / OpenAI 改个环境变量即可
 
 ---
@@ -22,14 +25,18 @@
 ## 架构
 
 ```
-        ┌──────────────────────────── Agent.run(task) ────────────────────────────┐
-        │                                                                          │
-  task ─┤  messages ──▶ LLM.chat(messages, tools) ──▶ 有 tool_calls? ──否──▶ 最终回答 │
-        │      ▲                                          │是                      │
-        │      │                                          ▼                        │
-        │      └──── tool 结果 (含 ERROR) 回灌 ◀── ToolRegistry.call() ◀── Workspace  │
-        │                                              (沙箱: read/write/list/run)   │
-        └────────────────────── 每一步都记入 Trace (token/成本/耗时) ────────────────┘
+            ┌── eval: 配置 {自我修正 on/off} × repeat ─▶ pass@1 + bootstrap 置信区间 + 单位成功成本 ──┐
+            │                                                                                       │
+ task ─▶ Agent 主循环 ─▶ LLM.chat(messages, tools)  (DeepSeek/Qwen/GLM  ◀▶  ScriptedLLM 测试桩)
+            │                         │ 有 tool_calls? ─否─▶ 最终回答
+            │                         ▼ 是
+            ├─ 内建工具 ─▶ Workspace 路径沙箱 ─▶ Executor 接口
+            │   (读/写/改/列/run)                  ├─ LocalExecutor  (黑名单护栏)
+            │        ▲                             └─ DockerExecutor (禁网 / 只读根 / 仅挂工作区 / 限额)
+            │        └── 结果(含 ERROR/exit≠0) 回灌, 触发自我修正
+            └─ MCP client ─▶ 外部 MCP server (stdio, JSON-RPC; 工具自动发现 + 命名空间注入)
+
+ 全程每一步 ─▶ Trace (JSON: token/成本/耗时) ─▶ viewer/index.html (单页可视化)
 ```
 
 | 模块 | 职责 |
@@ -37,10 +44,14 @@
 | `miniagent/agent.py` | 主循环：决策→执行→回灌→终止，自我修正（观察失败→重试，可关，用于消融），上下文压缩 |
 | `miniagent/llm.py` | LLM 抽象：`OpenAICompatLLM`(真实) + `ScriptedLLM`(测试用) + 成本估算 |
 | `miniagent/tools.py` | 5 个工具(读/写/改/列/执行) + 注册表 + OpenAI function schema 生成 |
+| `miniagent/executor.py` | 命令执行后端接口：`LocalExecutor`(护栏) / `DockerExecutor`(OS 级隔离) |
+| `miniagent/mcp.py` | MCP stdio 客户端：握手 + tools/list + tools/call + 命名空间注入 |
 | `miniagent/safety.py` | `Workspace` 沙箱，路径越界拦截 |
 | `miniagent/trace.py` | 结构化轨迹：统计与落盘 |
-| `eval/` | 23 个任务 + 程序化检查器 + pass@1 置信区间 / 自我修正消融 / 跨模型聚合 (`aggregate.py`) / 单位成功成本 |
-| `tests/` | 不依赖 key 的确定性单元测试 |
+| `eval/` | 23 个任务 + 检查器 + pass@1 置信区间 / 自我修正消融 / 跨模型聚合 (`aggregate.py`) / 单位成功成本 |
+| `viewer/` | 单文件 trace 可视化 (`index.html` + `sample_run.json` 样例) |
+| `examples/` | 可运行的 demo MCP server (`mcp_demo_server.py`) |
+| `tests/` | 不依赖 key 的确定性单元测试 (44 个，含 MCP 端到端) |
 
 ---
 
@@ -97,6 +108,21 @@ python eval/aggregate.py eval/results.json eval/r_qwen.json
 >
 > **关于 ON 的饱和**：DeepSeek-chat 太强，开着自我修正能解全部 23 题（CI 退化为 [100%,100%]）。要让"量尺"在 ON 端也有刻度，正确做法是**跨模型**——在更弱的模型上 ON 会掉破 100%，并可验证 **Δ 是否随模型变强而缩小**（强模型靠静态推理、不依赖试错）。用 `aggregate.py` 出"模型 × 配置"矩阵即可。
 
+### 5. 进阶：容器隔离 / MCP / 可视化
+
+```bash
+# 用 Docker 隔离执行命令 (禁网 + 只读根 + 仅挂工作区, 需本机有 docker)
+python cli.py "跑一下 ls 看看" --executor docker
+
+# 作为 MCP host 连接外部 server, 自动挂载其工具 (这里用自带 demo server)
+python cli.py "用 mcp 工具把 12 和 30 相加，再把结果字符串倒过来" \
+    --mcp "python examples/mcp_demo_server.py"
+
+# 可视化 trace: 先跑出 run.json, 再用浏览器打开 viewer/index.html 载入它
+python cli.py "创建并运行 hello.py" --trace run.json
+#   → 打开 viewer/index.html, 选择 run.json (仓库已带 viewer/sample_run.json 样例)
+```
+
 ---
 
 ## 几个值得一聊的设计决策
@@ -105,7 +131,7 @@ python eval/aggregate.py eval/results.json eval/r_qwen.json
 
 - **工具/命令失败为什么不抛异常而是回灌文本？** 真实 agent 跑起来一定会遇到失败（文件不存在、命令报错、测试跑挂）。让 agent "看见"失败（含 `run_command` 的非零退出）并**观察→重试→修复**，比直接崩溃更接近生产形态，也是它 agentic 能力的核心。更进一步，这个机制是**可量化**的：`run_eval.py --ablation` 会在开/关自我修正两种配置下各跑一遍，直接报出它带来的通过率差值（Δ）；单测 `test_self_correct_continues_after_failing_command` 与 `test_no_self_correct_aborts_on_failing_command` 一正一反锁定行为。
 
-- **关于安全边界（诚实版）。** 文件工具全部经 `Workspace.resolve()` 约束在工作区内，`../` 或绝对路径越界即 `ValueError`，这部分是真边界。但 `run_command` 走 `shell=True`，`cwd` 设在工作区**并不构成隔离** —— 它仍能 `cat /etc/passwd`、联网、动系统文件。我对它只做了一层 *defense-in-depth* 的危险命令护栏（拦 `rm -rf /`、fork bomb、`sudo` 等），并明确知道黑名单本质可绕过。**真正隔离一个会跑 shell 的 agent，正确答案是 OS 级隔离（容器 / seccomp / 只读挂载 / 禁网），不是黑名单。** 把这个 tradeoff 讲清楚，比假装"已经安全"更重要 —— 这正是工程判断力。
+- **关于安全边界（诚实版）。** 文件工具全部经 `Workspace.resolve()` 约束在工作区内，`../` 或绝对路径越界即 `ValueError`，这部分是真边界。而 `run_command` 走 `shell=True`，宿主机直跑**并不构成隔离** —— 黑名单护栏（拦 `rm -rf /`、fork bomb、`sudo` 等）只是 *defense-in-depth*，本质可绕过。**所以我没有止步于"知道答案"：把执行抽象成 `Executor` 接口，并实现了 `DockerExecutor`（`--network none` 禁网 + 只读根 + 仅挂工作区可写 + 内存/CPU/pids 限额），这才是约束"会跑 shell 的 agent"的正确形态。** 残余风险也写在 `executor.py` 注释里（docker 守护进程攻击面、未做 seccomp 自定义 profile）—— 自己挖的坑自己填、并说清没填完的部分，比假装"已经安全"更有说服力。
 
 - **为什么 provider 无关？** 把 `LLM_BASE_URL / LLM_MODEL / LLM_API_KEY` 抽出来，换模型零改代码，也方便用便宜模型做 eval、贵模型做对比。
 
@@ -114,16 +140,15 @@ python eval/aggregate.py eval/results.json eval/r_qwen.json
 定位：不只是"带评测的极简 agent"，而是**每加一个机制，就量化一次它的价值**——消融是方法论，不是一次性卖点。
 
 **已完成（v2）**
-- ✅ eval 扩到 **23 个任务**（含多文件重构、双 bug、干扰文件等更难项），打破单模型饱和。
-- ✅ headline 升级为 **pass@1 均值 + bootstrap 95% 置信区间**；新增**单位成功成本**与**跨模型聚合**（`aggregate.py`）。
+- ✅ eval 扩到 **23 个任务**（含多文件重构、双 bug、干扰文件等更难项）；headline 升级为 **pass@1 均值 + bootstrap 95% 置信区间**；新增**单位成功成本**与**跨模型聚合**（`aggregate.py`）。
+- ✅ **`Executor` 接口** —— `LocalExecutor`（护栏）/ `DockerExecutor`（禁网 + 只读根 + 仅挂工作区 + 资源限额），命令执行隔离从"知道答案"变为"已实现"。
+- ✅ **MCP host** —— stdio 连接任意 MCP server，工具自动发现 + 命名空间注入主循环；自带可运行 demo server 与端到端测试。
+- ✅ **trace viewer** —— 单文件 HTML 载入 `run.json`，渲染概览卡片 / 决策·工具时间线 / 调用树。
 
-**进行中 / 下一步**
-- **`run_command` 非真隔离** —— 拟抽象出 `Executor` 接口：`LocalExecutor`（现状护栏版）/ `DockerExecutor`（`--network none` + 只读 rootfs + 仅挂工作区 + 资源/超时限额），把"我知道正确答案是 OS 级隔离"升级为"正确答案我实现了，残余风险与缓解是 X"。
-- **MCP client** —— 让 miniagent 以 stdio 连接任意 MCP server（工具自动发现 → 转 function schema → 带命名空间注入循环），首例接入外部知识库 server，从"我写了一个 agent"升级为"我搭了能接入工具生态的 agent host"。
-- **trace viewer** —— 单文件 HTML 载入 `run.json`，渲染时间线 / 每步 token·成本 / 工具调用树（演示 ROI 最高）。
+**下一步**
 - **上下文压缩 v2** —— 从"按消息条数截断"升级为"token 预算 + 旧轮摘要"，并作为**第二条消融轴**量化不同压缩策略。
+- **跨模型矩阵** —— 在 Qwen / GLM 上各跑一遍消融，验证 **Δ 是否随模型变强而缩小**（"机制 × 能力"交互）。
 - **外部锚点** —— 用官方 harness 跑若干 SWE-bench-lite 题，获得公认坐标系。
-- **可观测性可视化** —— trace 已落盘 JSON，可再加一个 trace viewer。
 
 ## License
 

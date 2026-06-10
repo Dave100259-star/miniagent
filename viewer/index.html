@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>miniagent · Trace Viewer</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2027; --line: #2a323c; --fg: #d7dde4;
+    --muted: #8a95a3; --llm: #5aa9ff; --tool: #f0a35e; --ok: #56d364;
+    --bad: #f85149; --accent: #a371f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.55 -apple-system, "Segoe UI", Roboto, "Noto Sans CJK SC", sans-serif;
+  }
+  header {
+    padding: 16px 24px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header h1 .sub { color: var(--muted); font-weight: 400; }
+  .spacer { flex: 1; }
+  input[type=file] { color: var(--muted); font-size: 13px; }
+  .drop {
+    margin: 40px auto; max-width: 560px; padding: 40px; text-align: center;
+    border: 2px dashed var(--line); border-radius: 12px; color: var(--muted);
+  }
+  .drop.hover { border-color: var(--accent); color: var(--fg); }
+  main { padding: 20px 24px; max-width: 1000px; margin: 0 auto; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 16px; min-width: 110px;
+  }
+  .card .k { color: var(--muted); font-size: 12px; }
+  .card .v { font-size: 20px; font-weight: 600; margin-top: 2px; }
+  .round { margin-bottom: 18px; }
+  .step {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 8px;
+  }
+  .step.tool { margin-left: 28px; border-left: 3px solid var(--tool); }
+  .step.llm { border-left: 3px solid var(--llm); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .icon { font-size: 16px; }
+  .name { font-weight: 600; }
+  .name.llm { color: var(--llm); } .name.tool { color: var(--tool); }
+  .meta { color: var(--muted); font-size: 12px; margin-left: auto; white-space: nowrap; }
+  .badges { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    background: #243; color: var(--ok); border-radius: 6px; padding: 1px 8px;
+    font-size: 12px; border: 1px solid #2f4;
+  }
+  .badge.final { background: #234; color: var(--llm); border-color: #356; }
+  pre {
+    background: #0c1116; border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; margin: 6px 0 0; overflow-x: auto; font-size: 12.5px;
+    white-space: pre-wrap; word-break: break-word; max-height: 220px;
+  }
+  .lbl { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .exit0 { color: var(--ok); } .exitN { color: var(--bad); }
+  footer { color: var(--muted); text-align: center; padding: 24px; font-size: 12px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>miniagent · <span class="sub">Trace Viewer</span></h1>
+  <div class="spacer"></div>
+  <label>载入 trace: <input type="file" id="file" accept=".json"></label>
+</header>
+
+<main id="main">
+  <div class="drop" id="drop">
+    把 <code>run.json</code> 拖到这里，或用右上角选择文件。<br>
+    <span style="font-size:12px">（生成方式：<code>python cli.py "…" --trace run.json</code>）</span>
+  </div>
+</main>
+
+<footer>miniagent trace viewer · 单文件、零依赖 · 渲染 agent 每步的决策 / 工具调用 / token·成本</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const fmtCost = (c) => c ? ('$' + Number(c).toFixed(6)) : '$0';
+
+function card(k, v) { return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+
+function renderSummary(s) {
+  if (!s) return '';
+  return `<div class="cards">
+    ${card('步数', s.steps ?? '–')}
+    ${card('LLM 调用', s.llm_calls ?? '–')}
+    ${card('工具调用', s.tool_calls ?? '–')}
+    ${card('tokens', (s.tokens ?? 0).toLocaleString())}
+    ${card('成本', fmtCost(s.cost_usd))}
+    ${card('耗时', (s.seconds ?? 0) + 's')}
+  </div>`;
+}
+
+function renderLLM(step, i) {
+  const d = step.detail || {};
+  const tcs = d.tool_calls || [];
+  const badges = tcs.length
+    ? tcs.map(t => `<span class="badge">→ ${esc(t)}</span>`).join('')
+    : `<span class="badge final">→ 收尾 (给出最终回答)</span>`;
+  const content = d.content
+    ? `<div class="lbl">模型文本</div><pre>${esc(d.content)}</pre>` : '';
+  return `<div class="step llm">
+    <div class="row"><span class="icon">🤖</span>
+      <span class="name llm">LLM · ${esc(step.name || '')}</span>
+      <span class="meta">${step.tokens || 0} tok · ${fmtCost(step.cost)} · ${(step.seconds||0).toFixed(2)}s</span>
+    </div>
+    <div class="badges">${badges}</div>
+    ${content}
+  </div>`;
+}
+
+function renderTool(step) {
+  const d = step.detail || {};
+  const args = d.args !== undefined ? `<div class="lbl">参数</div><pre>${esc(JSON.stringify(d.args, null, 2))}</pre>` : '';
+  let result = '';
+  if (d.result !== undefined) {
+    const r = String(d.result);
+    const m = r.match(/^exit=(\d+)/);
+    const tag = m ? `<span class="${m[1]==='0'?'exit0':'exitN'}">exit=${m[1]}</span> ` : '';
+    result = `<div class="lbl">结果 ${tag}</div><pre>${esc(r)}</pre>`;
+  }
+  return `<div class="step tool">
+    <div class="row"><span class="icon">🔧</span>
+      <span class="name tool">${esc(step.name || '')}</span>
+      <span class="meta">${(step.seconds||0).toFixed(2)}s</span>
+    </div>
+    ${args}${result}
+  </div>`;
+}
+
+// 把线性 steps 按"每次 LLM 决策 + 其后的工具调用"分组渲染成调用树。
+function renderTimeline(steps) {
+  let html = '', open = false, buf = '';
+  const flush = () => { if (open) { html += `<div class="round">${buf}</div>`; buf=''; } };
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (s.kind === 'llm') { flush(); open = true; buf = renderLLM(s, i); }
+    else { buf += renderTool(s); }
+  }
+  flush();
+  return html;
+}
+
+function render(data) {
+  const steps = data.steps || [];
+  const summary = data.summary || null;
+  $('main').innerHTML = renderSummary(summary) + renderTimeline(steps);
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try { render(JSON.parse(e.target.result)); }
+    catch (err) { alert('解析失败: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+$('file').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+const drop = $('drop');
+['dragover','dragenter'].forEach(ev => document.addEventListener(ev, e => {
+  e.preventDefault(); drop && drop.classList.add('hover');
+}));
+['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => {
+  e.preventDefault(); drop && drop.classList.remove('hover');
+}));
+document.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0]; if (f) loadFile(f);
+});
+
+// 若以 http 方式打开且带 ?src=xxx.json, 自动加载 (file:// 下浏览器禁止 fetch, 用文件选择即可)。
+const src = new URLSearchParams(location.search).get('src');
+if (src) fetch(src).then(r => r.json()).then(render).catch(() => {});
+</script>
+</body>
+</html>
