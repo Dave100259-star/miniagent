@@ -15,7 +15,8 @@ dependencies = []
 # 只有连真实模型时才需要 [real]。
 [project.optional-dependencies]
 real = ["openai>=1.0", "python-dotenv>=1.0"]
-dev = ["pytest>=7.0", "ruff>=0.4"]
+server = ["fastapi>=0.110", "uvicorn>=0.29"]   # HTTP 服务层 (miniagent/server.py)
+dev = ["pytest>=7.0", "ruff>=0.4", "fastapi>=0.110", "httpx>=0.27"]
 
 [project.scripts]
 miniagent = "cli:main"

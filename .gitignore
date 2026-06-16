@@ -8,6 +8,7 @@ workspace/
 eval/traces/
 *.egg-info/
 .DS_Store
+*.db
 
 # rag/ 是另一个独立项目, 不属于本仓库 (误放在此目录下时防止被提交/扫描)
 rag/

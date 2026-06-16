@@ -1,7 +1,7 @@
 # miniagent
 
 [![CI](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml/badge.svg)](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-44%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-50%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 > 一个 ~600 行、带**评测**与**可观测性**的极简 coding agent。
@@ -17,7 +17,8 @@
 - ✅ **安全边界（诚实版）** —— 文件工具经 `Workspace` 做路径约束，越界即拦截；`run_command` 加危险命令护栏，并诚实说明本地版不是真隔离（真隔离用 `DockerExecutor`，见下文）
 - ✅ **自我修正** —— 工具/命令失败（含测试跑挂）不会让流程崩溃，错误回灌给模型让它观察→重试→修复；该机制的价值由消融实验量化
 - ✅ **上下文压缩** —— 历史过长时截断陈旧的工具输出、保留近期轮次，且不破坏 tool_call 配对
-- ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环**无需真实 API key 即可被单元测试覆盖**（44 个测试，含自我修正开/关对照、bootstrap 统计、MCP 端到端、Executor 注入）
+- ✅ **服务化 (FastAPI)** —— `POST /run` 提交任务、`GET /runs` 查历史、`GET /stats` 看聚合;**LRU 缓存**(相同任务命中即省一次 LLM 调用与费用)+ **SQLite 持久化**每次运行的回答/trace/成本
+- ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环与服务层**无需真实 API key 即可被单元测试覆盖**（50 个测试，含自我修正开/关对照、bootstrap 统计、MCP 端到端、Executor 注入、HTTP 接口与缓存）
 - ✅ **provider 无关** —— OpenAI 兼容，DeepSeek / 通义千问 / 智谱 GLM / OpenAI 改个环境变量即可
 
 ---
@@ -59,7 +60,8 @@
 | `eval/` | 23 个任务 + 检查器 + pass@1 置信区间 / 自我修正消融 / 跨模型聚合 (`aggregate.py`) / 单位成功成本 |
 | `viewer/` | 单文件 trace 可视化 (`index.html` + `sample_run.json` 样例) |
 | `examples/` | 可运行的 demo MCP server (`mcp_demo_server.py`) |
-| `tests/` | 不依赖 key 的确定性单元测试 (44 个，含 MCP 端到端) |
+| `miniagent/server.py` | FastAPI 服务层：`/run` `/runs` `/stats`，LRU 缓存 + SQLite 存储 |
+| `tests/` | 不依赖 key 的确定性单元测试 (50 个，含 MCP 端到端、HTTP 接口) |
 
 ---
 
@@ -131,6 +133,20 @@ python cli.py "创建并运行 hello.py" --trace run.json
 #   → 打开 viewer/index.html, 选择 run.json (仓库已带 viewer/sample_run.json 样例)
 ```
 
+### 6. 作为 HTTP 服务运行
+
+```bash
+pip install -e ".[server,real]"
+uvicorn --factory miniagent.server:create_app        # 默认 127.0.0.1:8000
+
+curl -X POST localhost:8000/run -H "Content-Type: application/json" \
+     -d '{"task":"创建 hello.py 打印 Hello 并运行"}'    # 提交任务, 结果落库
+curl localhost:8000/runs        # 历史运行
+curl localhost:8000/stats       # 总运行数 / 总成本 / 缓存命中率
+```
+
+相同任务再次提交会**命中 LRU 缓存**直接返回(省一次 LLM 调用),每次运行都持久化进 SQLite。
+
 ---
 
 ## 几个值得一聊的设计决策
@@ -152,6 +168,7 @@ python cli.py "创建并运行 hello.py" --trace run.json
 - ✅ **`Executor` 接口** —— `LocalExecutor`（护栏）/ `DockerExecutor`（禁网 + 只读根 + 仅挂工作区 + 资源限额），命令执行隔离从"知道答案"变为"已实现"。
 - ✅ **MCP host** —— stdio 连接任意 MCP server，工具自动发现 + 命名空间注入主循环；自带可运行 demo server 与端到端测试。
 - ✅ **trace viewer** —— 单文件 HTML 载入 `run.json`，渲染概览卡片 / 决策·工具时间线 / 调用树。
+- ✅ **FastAPI 服务层** —— `/run` `/runs` `/stats` 接口 + LRU 缓存(省重复 LLM 调用) + SQLite 持久化。
 
 **下一步**
 - **上下文压缩 v2** —— 从"按消息条数截断"升级为"token 预算 + 旧轮摘要"，并作为**第二条消融轴**量化不同压缩策略。
