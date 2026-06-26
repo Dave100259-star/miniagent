@@ -20,6 +20,7 @@ import json
 import shutil
 import sqlite3
 import tempfile
+import threading
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -73,6 +74,7 @@ class RunStore:
     def __init__(self, db_path: str = "miniagent_runs.db"):
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._lock = threading.Lock()           # 串行化写入 (FastAPI 同步端点跑在线程池)
         self.conn.execute(
             """CREATE TABLE IF NOT EXISTS runs(
                  id TEXT PRIMARY KEY, task TEXT, answer TEXT, success INTEGER,
@@ -82,13 +84,14 @@ class RunStore:
         self.conn.commit()
 
     def save(self, rec: dict) -> None:
-        self.conn.execute(
-            "INSERT INTO runs VALUES (:id,:task,:answer,:success,:steps,:tokens,"
-            ":cost,:cached,:trace_json,:created_at)",
-            {**rec, "trace_json": json.dumps(rec.get("trace"), ensure_ascii=False),
-             "success": int(rec["success"]), "cached": int(rec["cached"])},
-        )
-        self.conn.commit()
+        with self._lock:
+            self.conn.execute(
+                "INSERT INTO runs VALUES (:id,:task,:answer,:success,:steps,:tokens,"
+                ":cost,:cached,:trace_json,:created_at)",
+                {**rec, "trace_json": json.dumps(rec.get("trace"), ensure_ascii=False),
+                 "success": int(rec["success"]), "cached": int(rec["cached"])},
+            )
+            self.conn.commit()
 
     def get(self, run_id: str):
         r = self.conn.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()

@@ -45,6 +45,7 @@ class Agent:
                  max_steps: int = 12, system: str = SYSTEM_PROMPT,
                  model: str = None, on_event: Optional[Callable[[Step], None]] = None,
                  compact_after: int = 30, compact_keep_recent: int = 8,
+                 token_budget: int = 8000, loop_guard: int = 4,
                  recover_errors: bool = True):
         self.llm = llm
         self.workspace = workspace
@@ -55,6 +56,8 @@ class Agent:
         self.on_event = on_event
         self.compact_after = compact_after          # 消息数超过此值就压缩
         self.compact_keep_recent = compact_keep_recent
+        self.token_budget = token_budget            # 近似 token 预算, 超过也触发压缩
+        self.loop_guard = loop_guard                # 连续重复相同工具调用达此次数即判定卡死
         # recover_errors=True: 观察到失败 (异常/测试跑挂) 后回灌错误、让模型自我修正;
         # False: 一遇失败就终止 (消融实验用, 量化"自我修正"回路的价值)。
         self.recover_errors = recover_errors
@@ -83,7 +86,10 @@ class Agent:
         关键: 只修改 content 字符串、绝不删除消息, 以保证 assistant 的 tool_calls
         与对应 tool 结果的配对不被破坏 (否则 OpenAI 兼容接口会报错)。
         """
-        if len(messages) <= self.compact_after:
+        # 触发条件: 消息条数过多 或 近似 token 占用超预算 (二者满足其一)。
+        # token 近似: 按内容字符数估算 (中文≈1 token/字, 英文≈1/4), 取 /3 作折中。
+        approx_tokens = sum(len(str(m.get("content") or "")) for m in messages) // 3
+        if len(messages) <= self.compact_after and approx_tokens <= self.token_budget:
             return messages
         head = messages[:2]                          # system + 首条 user 任务
         body = messages[2:]
@@ -103,6 +109,7 @@ class Agent:
             {"role": "user", "content": task},
         ]
         schemas = self.registry.schemas()
+        last_sig, repeats = None, 0          # 无进展检测: 连续相同的工具调用签名
 
         for i in range(self.max_steps):
             messages = self._compact(messages)
@@ -121,6 +128,16 @@ class Agent:
             # 没有工具调用 = 模型给出了最终回答, 结束。
             if not resp.tool_calls:
                 return AgentResult(resp.content, i + 1, True, self.trace)
+
+            # 无进展检测: 模型反复发出完全相同的工具调用 (同名同参) → 判定卡死, 提前止损,
+            # 避免"改→错→改回→又错"或同一失败调用空转烧 token。
+            sig = json.dumps([[tc["name"], tc["arguments"]] for tc in resp.tool_calls],
+                             sort_keys=True, ensure_ascii=False)
+            repeats = repeats + 1 if sig == last_sig else 0
+            last_sig = sig
+            if repeats >= self.loop_guard:
+                return AgentResult(
+                    "(检测到重复且无进展的工具调用, 已提前终止)", i + 1, False, self.trace)
 
             # 依次执行工具调用, 把结果 (含错误) 回灌。
             for tc in resp.tool_calls:

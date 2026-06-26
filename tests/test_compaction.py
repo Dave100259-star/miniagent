@@ -36,3 +36,12 @@ def test_compact_is_noop_when_short(tmp_path):
     a = _agent(tmp_path, compact_after=50)
     msgs = _msgs(3)
     assert a._compact(msgs) == msgs
+
+
+def test_compact_triggers_on_token_budget(tmp_path):
+    # 消息条数没超 (compact_after 极大), 但内容远超 token 预算 → 仍应触发压缩。
+    a = _agent(tmp_path, compact_after=999, compact_keep_recent=2, token_budget=100)
+    msgs = _msgs(10)                                  # 内容约 5000 字符, 远超 100 token 预算
+    out = a._compact(msgs)
+    assert len(out) == len(msgs)                      # 仍不丢消息 (配对安全)
+    assert any("已压缩" in m["content"] for m in out[2:-2])

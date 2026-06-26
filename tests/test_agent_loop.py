@@ -106,6 +106,17 @@ def test_self_correct_continues_after_failing_command(tmp_path):
     assert res.trace.llm_calls() == 2
 
 
+def test_loop_guard_stops_repeated_identical_calls(tmp_path):
+    # 模型反复发出完全相同的工具调用 → 无进展检测应在 max_steps 之前止损。
+    def rule(messages):
+        return llm_msg(tool_calls=[tool_call("list_dir", {"path": "."}, "c")])
+
+    res = _agent(tmp_path, llm=ScriptedLLM(rule=rule), max_steps=20, loop_guard=3).run("loop")
+    assert not res.success
+    assert "无进展" in res.answer
+    assert res.trace.llm_calls() < 20            # 远早于 max_steps
+
+
 def test_on_event_callback_fires_for_llm_and_tool(tmp_path):
     # 实时事件回调 (CLI 据此打印进度) 应在 LLM 决策和工具执行两类步骤上都触发。
     script = [

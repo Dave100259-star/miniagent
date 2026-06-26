@@ -1,7 +1,7 @@
 # miniagent
 
 [![CI](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml/badge.svg)](https://github.com/Dave100259-star/miniagent/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-50%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-52%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 > 一个 ~600 行、带**评测**与**可观测性**的极简 coding agent。
@@ -16,9 +16,10 @@
 - ✅ **可观测性 (trace) + 可视化** —— 每一步的工具调用 / token / 成本 / 耗时可落盘成 JSON，配单文件 `viewer/index.html` 渲染时间线与调用树
 - ✅ **安全边界（诚实版）** —— 文件工具经 `Workspace` 做路径约束，越界即拦截；`run_command` 加危险命令护栏，并诚实说明本地版不是真隔离（真隔离用 `DockerExecutor`，见下文）
 - ✅ **自我修正** —— 工具/命令失败（含测试跑挂）不会让流程崩溃，错误回灌给模型让它观察→重试→修复；该机制的价值由消融实验量化
-- ✅ **上下文压缩** —— 历史过长时截断陈旧的工具输出、保留近期轮次，且不破坏 tool_call 配对
+- ✅ **上下文压缩** —— 按消息数与**近似 token 预算**触发，截断陈旧的工具输出、保留近期轮次，且不破坏 tool_call 配对
+- ✅ **无进展防护** —— 检测到模型反复发出完全相同的工具调用（卡死 / 来回改）即提前止损，避免空转烧 token
 - ✅ **服务化 (FastAPI)** —— `POST /run` 提交任务、`GET /runs` 查历史、`GET /stats` 看聚合;**LRU 缓存**(相同任务命中即省一次 LLM 调用与费用)+ **SQLite 持久化**每次运行的回答/trace/成本
-- ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环与服务层**无需真实 API key 即可被单元测试覆盖**（50 个测试，含自我修正开/关对照、bootstrap 统计、MCP 端到端、Executor 注入、HTTP 接口与缓存）
+- ✅ **可测试** —— 用可注入的 `ScriptedLLM`，agent 主循环与服务层**无需真实 API key 即可被单元测试覆盖**（52 个测试，含自我修正开/关对照、bootstrap 统计、MCP 端到端、Executor 注入、HTTP 接口与缓存、无进展防护）
 - ✅ **provider 无关** —— OpenAI 兼容，DeepSeek / 通义千问 / 智谱 GLM / OpenAI 改个环境变量即可
 
 ---
@@ -61,7 +62,7 @@
 | `viewer/` | 单文件 trace 可视化 (`index.html` + `sample_run.json` 样例) |
 | `examples/` | 可运行的 demo MCP server (`mcp_demo_server.py`) |
 | `miniagent/server.py` | FastAPI 服务层：`/run` `/runs` `/stats`，LRU 缓存 + SQLite 存储 |
-| `tests/` | 不依赖 key 的确定性单元测试 (50 个，含 MCP 端到端、HTTP 接口) |
+| `tests/` | 不依赖 key 的确定性单元测试 (52 个，含 MCP 端到端、HTTP 接口) |
 
 ---
 
@@ -171,7 +172,7 @@ curl localhost:8000/stats       # 总运行数 / 总成本 / 缓存命中率
 - ✅ **FastAPI 服务层** —— `/run` `/runs` `/stats` 接口 + LRU 缓存(省重复 LLM 调用) + SQLite 持久化。
 
 **下一步**
-- **上下文压缩 v2** —— 从"按消息条数截断"升级为"token 预算 + 旧轮摘要"，并作为**第二条消融轴**量化不同压缩策略。
+- **上下文压缩 v2** —— 触发已支持近似 token 预算；下一步用更准的 tokenizer 计数 + 旧轮摘要（summarization），并作为**第二条消融轴**量化不同压缩策略。
 - **跨模型矩阵** —— 在 Qwen / GLM 上各跑一遍消融，验证 **Δ 是否随模型变强而缩小**（"机制 × 能力"交互）。
 - **外部锚点** —— 用官方 harness 跑若干 SWE-bench-lite 题，获得公认坐标系。
 
